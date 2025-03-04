@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>今天吃什么</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background-color: #f9f9f9;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .container {
+      text-align: center;
+      background: #fff;
+      padding: 40px;
+      border-radius: 15px;
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+      position: relative;
+      z-index: 2;
+    }
+
+    h1 {
+      color: #333;
+      margin-bottom: 20px;
+    }
+
+    button {
+      background-color: #ff6f61;
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      font-size: 18px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: transform 0.2s ease-in-out, background-color 0.2s ease-in-out;
+      margin: 5px;
+    }
+
+    button:hover {
+      background-color: #e65c50;
+      transform: scale(1.05);
+    }
+
+    .result {
+      margin-top: 30px;
+      font-size: 20px;
+      color: #555;
+      min-height: 30px;
+      position: relative;
+    }
+
+    /* 键帽爆炸动画 */
+    .keycap-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+      overflow: hidden;
+    }
+
+    .keycap {
+      font-size: 30px; /* 设置表情符号大小 */
+      color: #8b5a2b; /* 设置“💩”的颜色 */
+      position: absolute;
+      animation: explode 1.2s ease-in-out forwards;
+    }
+
+    @keyframes explode {
+      0% {
+        transform: scale(1) translate(0, 0) rotate(0deg);
+        opacity: 1;
+      }
+      100% {
+        transform: scale(0.7) translate(var(--x), var(--y)) rotate(var(--rotate));
+        opacity: 0;
+      }
+    }
+
+    /* 查看推荐记录按钮 */
+    .history-button {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background-color: #aaa;
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      font-size: 14px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: transform 0.2s ease-in-out, background-color 0.2s ease-in-out;
+      z-index: 3;
+    }
+
+    .history-button:hover {
+      background-color: #888;
+      transform: scale(1.05);
+    }
+
+    .history-list {
+      margin-top: 20px;
+      max-height: 150px;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      padding: 10px;
+      border-radius: 5px;
+      display: none;
+    }
+
+    .history-item {
+      font-size: 14px;
+      color: #555;
+      margin: 5px 0;
+    }
+
+    .history-time {
+      font-size: 12px;
+      color: #888;
+      margin-left: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>今天吃什么</h1>
+    <button id="chooseButton">为我推荐</button>
+    <div class="result" id="result"></div>
+    <div class="history-list" id="historyList"></div>
+  </div>
+
+  <!-- 查看推荐记录按钮 -->
+  <button id="historyButton" class="history-button">查看记录</button>
+
+  <!-- 键帽爆炸容器 -->
+  <div class="keycap-container" id="keycapContainer"></div>
+
+  <script>
+    // 定义选项及对应的概率
+    const items = [
+      { name: "💩", probability: 0.1 },
+      { name: "🍫味的💩", probability: 0.1 },
+      { name: "💩味的🍫", probability: 0.1 },
+      { name: "💩味的🚬", probability: 0.1 },
+      { name: "粘到💩的🚬", probability: 0.1 },
+      { name: "粘到💩的🍟", probability: 0.1 },
+      { name: "粘到💩的🍜", probability: 0.1 },
+      { name: "粘到💩的🍣", probability: 0.1 },
+      { name: "🪳", probability: 0.1 },
+      { name: "🚬", probability: 0.02 },
+      { name: "🍫", probability: 0.02 },
+      { name: "🍟", probability: 0.02 },
+      { name: "🍜", probability: 0.02 },
+      { name: "🍣", probability: 0.02 }
+    ];
+
+    // 根据概率随机选择一个选项
+    function getRandomItem() {
+      const random = Math.random(); // 生成 0 到 1 的随机数
+      let cumulativeProbability = 0;
+
+      for (const item of items) {
+        cumulativeProbability += item.probability;
+        if (random < cumulativeProbability) {
+          return item.name;
+        }
+      }
+      return items[items.length - 1].name; // 确保返回最后一个选项（理论上不会触发）
+    }
+
+    const chooseButton = document.getElementById("chooseButton");
+    const resultDiv = document.getElementById("result");
+    const keycapContainer = document.getElementById("keycapContainer");
+    const historyButton = document.getElementById("historyButton");
+    const historyList = document.getElementById("historyList");
+
+    let recommendationHistory = [];
+
+    // 创建键帽爆炸动画
+    function createKeycapExplosion() {
+      keycapContainer.innerHTML = ""; // 清空之前的键帽
+      for (let i = 0; i < 50; i++) { // 增加键帽数量
+        const keycap = document.createElement("div");
+        keycap.classList.add("keycap");
+        keycap.textContent = "💩"; // 使用“💩”作为键帽内容
+        const angle = Math.random() * 2 * Math.PI; // 随机角度
+        const distance = Math.random() * window.innerWidth / 1.5; // 扩大扩散范围
+        const x = Math.cos(angle) * distance; // 计算X偏移
+        const y = Math.sin(angle) * distance; // 计算Y偏移
+        const rotate = Math.random() * 720 - 360; // 随机旋转角度（-360到360度）
+        keycap.style.setProperty("--x", `${x}px`);
+        keycap.style.setProperty("--y", `${y}px`);
+        keycap.style.setProperty("--rotate", `${rotate}deg`);
+        keycap.style.left = `${window.innerWidth / 2}px`; // 初始位置在屏幕中心
+        keycap.style.top = `${window.innerHeight / 2}px`;
+        keycap.style.animationDelay = `${Math.random() * 0.3}s`; // 随机动画延迟
+        keycapContainer.appendChild(keycap);
+      }
+    }
+
+    // 点击推荐按钮
+    chooseButton.addEventListener("click", () => {
+      // 开始滚动动画
+      let currentIndex = 0;
+      const totalRolls = 30; // 滚动次数（控制速度和持续时间）
+      const intervalTime = 50; // 每次滚动的时间间隔
+
+      const rollInterval = setInterval(() => {
+        currentIndex = (currentIndex + 1) % items.length;
+        resultDiv.textContent = items[currentIndex].name;
+      }, intervalTime);
+
+      // 停止滚动并显示最终结果
+      setTimeout(() => {
+        clearInterval(rollInterval); // 停止滚动
+        const selectedItem = getRandomItem();
+        resultDiv.textContent = `推荐你吃：${selectedItem}`; // 显示最终结果
+
+        // 添加到推荐记录，附带当前时间
+        const currentTime = new Date().toLocaleString(); // 获取当前时间
+        recommendationHistory.push({ item: selectedItem, time: currentTime });
+
+        // 键帽爆炸动画
+        createKeycapExplosion();
+      }, totalRolls * intervalTime);
+    });
+
+    // 查看推荐记录
+    historyButton.addEventListener("click", () => {
+      if (historyList.style.display === "block") {
+        historyList.style.display = "none";
+      } else {
+        historyList.innerHTML = ""; // 清空历史记录列表
+        recommendationHistory.forEach((record, index) => {
+          const historyItem = document.createElement("div");
+          historyItem.classList.add("history-item");
+          historyItem.textContent = `${index + 1}. ${record.item}`;
+          
+          // 添加时间戳
+          const historyTime = document.createElement("span");
+          historyTime.classList.add("history-time");
+          historyTime.textContent = record.time;
+          historyItem.appendChild(historyTime);
+          
+          historyList.appendChild(historyItem);
+        });
+        historyList.style.display = "block";
+      }
+    });
+  </script>
+</body>
+</html>
